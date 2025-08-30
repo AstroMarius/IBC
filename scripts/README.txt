@@ -1,0 +1,4 @@
+# [MERGE] Versione THEIRS applicata (identica a OURS) - Copilot 29-07-2025
+This folder contains scripts that should never need to be amended by the end user.
+
+Please DO NOT CHANGE THESE FILES unless you are sure you know what you are doing!!!
