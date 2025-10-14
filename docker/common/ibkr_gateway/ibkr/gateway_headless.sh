@@ -5,6 +5,11 @@
 #   This command file starts the Interactive Brokers' Gateway in headless    +
 #   mode for Docker containers.                                               +
 #                                                                             +
+#   Environment variables:                                                   +
+#     WATCHDOG_ENABLED    - Enable continuous TrustedIPs watchdog (default: false) +
+#     TRUSTED_CIDRS       - Comma-separated list of trusted IPs/CIDRs        +
+#                           (default: 172.20.0.0/16)                          +
+#                                                                             +
 #=============================================================================+
 
 TWS_MAJOR_VRSN=${TWS_MAJOR_VRSN:-1030}
@@ -21,6 +26,8 @@ FIXUSERID=${FIXUSERID:-}
 FIXPASSWORD=${FIXPASSWORD:-}
 JAVA_PATH=${JAVA_PATH:-}
 HIDE=
+WATCHDOG_ENABLED=${WATCHDOG_ENABLED:-false}
+TRUSTED_CIDRS=${TRUSTED_CIDRS:-172.20.0.0/16}
 
 # Ensure jts.ini exists
 mkdir -p "${TWS_SETTINGS_PATH}"
@@ -33,12 +40,25 @@ if [[ ! -f "${TWS_SETTINGS_PATH}/jts.ini" ]]; then
     echo "ApiOnly=true" >> "${TWS_SETTINGS_PATH}/jts.ini"
 fi
 
-# Enforce TrustedIPs to survive IBC rewrites
+# Enforce TrustedIPs
 if [[ -x /app/ibkr/fix_trusted_ips.sh ]]; then
-    /app/ibkr/fix_trusted_ips.sh
+    if [[ "$WATCHDOG_ENABLED" == "true" ]]; then
+        # Start watchdog in background
+        echo "Starting TrustedIPs watchdog with target: ${TRUSTED_CIDRS}"
+        TRUSTED_CIDRS="${TRUSTED_CIDRS}" nohup /app/ibkr/fix_trusted_ips.sh --watch >/dev/null 2>&1 &
+        WATCHDOG_PID=$!
+        echo "Watchdog started with PID: ${WATCHDOG_PID}"
+    else
+        # Single execution
+        TRUSTED_CIDRS="${TRUSTED_CIDRS}" /app/ibkr/fix_trusted_ips.sh
+    fi
 else
     # Inline fix if script not found
-    sed -i 's|TrustedIPs=.*|TrustedIPs=172.20.0.0/16|' "${TWS_SETTINGS_PATH}/jts.ini"
+    if [[ -n "$TRUSTED_CIDRS" ]]; then
+        sed -i "s|TrustedIPs=.*|TrustedIPs=${TRUSTED_CIDRS}|" "${TWS_SETTINGS_PATH}/jts.ini"
+    else
+        sed -i 's|TrustedIPs=.*|TrustedIPs=172.20.0.0/16|' "${TWS_SETTINGS_PATH}/jts.ini"
+    fi
 fi
 
 # Export environment variables
