@@ -1,0 +1,106 @@
+version: '3.8'
+
+# Example docker-compose configuration for IBKR Gateway headless mode
+# For full documentation, see: IBKR_GATEWAY_HEADLESS_OPERATIONS.md
+
+services:
+  gateway-headless:
+    # Replace with your actual image
+    image: your-registry/ibgateway:latest
+    container_name: gateway-headless
+    restart: unless-stopped
+    
+    environment:
+      # IBKR Credentials (NEVER commit actual credentials!)
+      IB_USER: "${IB_USER}"
+      IB_PASSWORD: "${IB_PASSWORD}"
+      
+      # Trading mode: 'paper' or 'live'
+      TRADING_MODE: "paper"
+      
+      # Display configuration for headless mode
+      DISPLAY: ":1"
+      
+      # TrustedIPs configuration
+      # Comma-separated list of IPs/CIDRs allowed to connect to the API
+      TRUSTED_CIDRS: "127.0.0.1,172.20.0.0/16,10.0.0.0/8"
+      
+      # Enable continuous watchdog to prevent TrustedIPs rewrites
+      # Set to 'true' if IBC keeps overwriting TrustedIPs
+      WATCHDOG_ENABLED: "false"
+      
+      # 2FA Configuration
+      # Action on 2FA timeout: 'exit' or 'restart'
+      TWOFA_TIMEOUT_ACTION: "exit"
+      
+      # Optional: TOTP secret for automatic 2FA (base32 encoded)
+      # WARNING: Keep this secret secure! Use Docker secrets or .env file
+      # OTP_SECRET: "BASE32SECRETEXAMPLE"
+      
+      # Gateway version
+      TWS_MAJOR_VRSN: "1030"
+      
+      # Paths
+      TWS_SETTINGS_PATH: "/opt/ibgateway"
+      LOG_PATH: "/app/ibc/logs"
+    
+    networks:
+      - ibnet
+    
+    # Only expose port if needed on host machine
+    # For internal Docker network access only, comment out this section
+    ports:
+      - "4001:4001"
+    
+    volumes:
+      # Persist IBGateway settings
+      - ibkr-data:/opt/ibgateway
+      
+      # Persist logs
+      - logs:/app/logs
+      
+      # Optional: mount custom config
+      # - ./config.ini:/app/ibc/config.ini:ro
+    
+    healthcheck:
+      test: ["CMD-SHELL", "ss -lnt | grep -q ':4001' || exit 1"]
+      interval: 10s
+      timeout: 3s
+      retries: 18
+      start_period: 120s
+    
+    # Resource limits (adjust as needed)
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
+          memory: 2G
+        reservations:
+          cpus: '1'
+          memory: 1G
+
+  # Example: Service that depends on gateway
+  # trading-bot:
+  #   image: your-registry/trading-bot:latest
+  #   container_name: trading-bot
+  #   depends_on:
+  #     gateway-headless:
+  #       condition: service_healthy
+  #   environment:
+  #     GATEWAY_HOST: "gateway-headless"
+  #     GATEWAY_PORT: "4001"
+  #   networks:
+  #     - ibnet
+
+networks:
+  ibnet:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/16
+
+volumes:
+  ibkr-data:
+    driver: local
+  logs:
+    driver: local

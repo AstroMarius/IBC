@@ -7,3 +7,6 @@ makedocs/*/*.aux
 makedocs/*/*.log
 makedocs/*/*.tex
 .*
+# Environment files with secrets
+.env
+docker/.env
