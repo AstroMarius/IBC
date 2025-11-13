@@ -27,6 +27,11 @@ log() {
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 IBC_PATH="${IBC_PATH:-$SCRIPT_DIR}"
+if [[ ! -x "$IBC_PATH/scripts/ibcstart.sh" && -x "/home/mario/ibc/scripts/ibcstart.sh" ]]; then
+    log "Defaulting IBC_PATH to /home/mario/ibc because repo copy lacks ibcstart"
+    IBC_PATH="/home/mario/ibc"
+fi
+IBC_START_SCRIPT="$IBC_PATH/scripts/ibcstart.sh"
 DEFAULT_INI="$IBC_PATH/config.ini"
 IBC_INI="${IBC_INI:-$DEFAULT_INI}"
 TRADING_MODE="${TRADING_MODE:-live}"
@@ -64,7 +69,7 @@ log "TWS_SETTINGS_PATH=$TWS_SETTINGS_PATH"
 log "LOG_PATH=$LOG_PATH"
 log "JAVA_PATH=$JAVA_PATH"
 
-if [[ -x "${IBC_PATH}/scripts/ibcstart.sh" ]]; then
+if [[ -x "$IBC_START_SCRIPT" ]]; then
     log "Found ibcstart.sh in ${IBC_PATH}/scripts"
 else
     log "Required script ibcstart.sh not found in ${IBC_PATH}/scripts"
@@ -74,6 +79,35 @@ fi
 if pgrep -f "java.*${IBC_INI}" >/dev/null; then
     log "A process is already running for java with ${IBC_INI}"
     exit 1
+fi
+
+declare -a IBC_ARGS
+IBC_ARGS=(
+    "$TWS_MAJOR_VRSN"
+    "--gateway"
+    "--tws-path=$TWS_PATH"
+    "--tws-settings-path=$TWS_SETTINGS_PATH"
+    "--ibc-path=$IBC_PATH"
+    "--ibc-ini=$IBC_INI"
+    "--java-path=$JAVA_PATH"
+    "--mode=$TRADING_MODE"
+    "--on2fatimeout=$TWOFA_TIMEOUT_ACTION"
+)
+
+if [[ -n "$TWSUSERID" ]]; then
+    IBC_ARGS+=("--user=$TWSUSERID")
+fi
+
+if [[ -n "$TWSPASSWORD" ]]; then
+    IBC_ARGS+=("--pw=$TWSPASSWORD")
+fi
+
+if [[ -n "$FIXUSERID" ]]; then
+    IBC_ARGS+=("--fix-user=$FIXUSERID")
+fi
+
+if [[ -n "$FIXPASSWORD" ]]; then
+    IBC_ARGS+=("--fix-pw=$FIXPASSWORD")
 fi
 
 
@@ -254,9 +288,9 @@ if [[ "$hide" = "YES" || "$hide" = "TRUE" ]]; then
 	iconic=-iconic
 fi
 
-if [[ "$1" == "-inline" ]]; then
-    exec "${IBC_PATH}/scripts/ibcstart.sh"
+if [[ "${1:-}" == "-inline" ]]; then
+    exec "$IBC_START_SCRIPT" "${IBC_ARGS[@]}"
 else
     title="IBC ($APP $TWS_MAJOR_VRSN)"
-    xterm $iconic -T "$title" -e "${IBC_PATH}/scripts/ibcstart.sh" &
+    xterm $iconic -T "$title" -e "$IBC_START_SCRIPT" "${IBC_ARGS[@]}" &
 fi

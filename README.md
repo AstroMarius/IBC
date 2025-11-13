@@ -139,5 +139,45 @@ the download on the [Releases page](https://github.com/IbcAlpha/IBC/releases).
 The last section of the [IBC User Guide](userguide.md) contains useful
 information about these differences.
 
+Running from the MonoAgentDocker repo
+-------------------------------------
+
+This repository contains a helper script (`gatewaystart.sh`) that wraps the
+official `ibcstart.sh` launcher and makes it easier to keep consistent
+environment variables (paths, trading mode, logging, etc.) across our
+development workflow. To start the Gateway from this repo, ensure you have
+the Gateway binaries installed in `/home/mario/ibc` (or point `IBC_PATH`
+to the actual location) and run:
+
+```bash
+cd /mnt/nvme/Progetti/MultiAgentDocker/ibc
+bash gatewaystart.sh -inline 1030 --ibc-path=/home/mario/ibc --mode=live \
+    --user=$IB_USER --pw=$IB_PASSWORD --fix-user=$FIX_USER --fix-pw=$FIX_PASSWORD
+```
+
+The script now falls back to `/home/mario/ibc` if the copy embedded in the
+repo is incomplete and emits structured logs into `ibc/logs/`. If you need
+to change the `ibcstart` invocation (for example to point to a different
+version), update the script or call `scripts/ibcstart.sh` directly. Always
+keep credentials outside the repo (use exported environment variables or a
+separate `.env` file) and never commit them.
+
+Wrapper basato su `.env`
+------------------------
+
+Per semplificare l'avvio quotidiano abbiamo aggiunto `scripts/start-ibkr-native.sh`,
+che legge automaticamente le credenziali da `.env` (variabili consigliate:
+`IBKR_USER`, `IBKR_PASSWORD`, `IBKR_FIX_USER`, `IBKR_FIX_PASSWORD`,
+`IBKR_TRADING_MODE`, `IBKR_TWS_VERSION`). Il wrapper imposta le variabili
+ambientali richieste e invoca `gatewaystart.sh -inline` in modo sicuro:
+
+```bash
+cd /mnt/nvme/Progetti/MultiAgentDocker
+ENV_FILE=$PWD/.env scripts/start-ibkr-native.sh
+```
+
+Puoi ancora passare argomenti addizionali (es. `--dry-run`) e, se il file
+`.env` non esiste, il wrapper usa le variabili già esportate nell'ambiente.
+
 
 
