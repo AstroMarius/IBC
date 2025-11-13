@@ -1,6 +1,11 @@
-# [MERGE] Versione THEIRS applicata: variabili e path aggiornati, debug migliorato - Copilot 29-07-2025
 #!/bin/bash
+# [MERGE] Versione THEIRS applicata: variabili e path aggiornati, debug migliorato - Copilot 29-07-2025
 
+set -euo pipefail
+
+log() {
+    >&2 echo "$@"
+}
 #=============================================================================+
 #                                                                             +
 #   This command file starts the Interactive Brokers' Gateway.                +
@@ -19,20 +24,57 @@
 #=============================================================================+
 
 
-TWS_MAJOR_VRSN=1030
-IBC_INI=/home/mario/Jts/config.ini
-TRADING_MODE=live
-TWOFA_TIMEOUT_ACTION=exit
-IBC_PATH=/mnt/nvme/Progetti/MultiAgentDocker/ibc
-TWS_PATH=/home/mario/Jts
-TWS_SETTINGS_PATH=
-LOG_PATH=/app/logs
-TWSUSERID=
-TWSPASSWORD=
-FIXUSERID=
-FIXPASSWORD=
-JAVA_PATH=/usr/bin
-HIDE=
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+IBC_PATH="${IBC_PATH:-$SCRIPT_DIR}"
+DEFAULT_INI="$IBC_PATH/config.ini"
+IBC_INI="${IBC_INI:-$DEFAULT_INI}"
+TRADING_MODE="${TRADING_MODE:-live}"
+TWOFA_TIMEOUT_ACTION="${TWOFA_TIMEOUT_ACTION:-exit}"
+TWS_PATH="${TWS_PATH:-$HOME/Jts}"
+TWS_SETTINGS_PATH="${TWS_SETTINGS_PATH:-$TWS_PATH}"
+LOG_PATH="${LOG_PATH:-$IBC_PATH/logs}"
+HIDE="${HIDE:-}"
+TWSUSERID="${TWSUSERID:-}"
+TWSPASSWORD="${TWSPASSWORD:-}"
+FIXUSERID="${FIXUSERID:-}"
+FIXPASSWORD="${FIXPASSWORD:-}"
+
+JAVA_CANDIDATE="$(command -v java || true)"
+JAVA_PATH="${JAVA_PATH:-${JAVA_CANDIDATE:-/usr/bin/java}}"
+
+raw_version=""
+clean_version=""
+if [[ -f "$IBC_INI" ]]; then
+    raw_version="$(grep -E '^JTS_VERSION=' "$IBC_INI" | head -1 | cut -d'=' -f2 | tr -d '[:space:]')"
+    clean_version="$(echo "$raw_version" | tr -cd '[:digit:]')"
+fi
+
+TWS_MAJOR_VRSN="${TWS_MAJOR_VRSN:-${clean_version:-1030}}"
+
+mkdir -p "$LOG_PATH"
+
+log "TWS_MAJOR_VRSN=$TWS_MAJOR_VRSN"
+log "IBC_INI=$IBC_INI"
+log "TRADING_MODE=$TRADING_MODE"
+log "TWOFA_TIMEOUT_ACTION=$TWOFA_TIMEOUT_ACTION"
+log "IBC_PATH=$IBC_PATH"
+log "TWS_PATH=$TWS_PATH"
+log "TWS_SETTINGS_PATH=$TWS_SETTINGS_PATH"
+log "LOG_PATH=$LOG_PATH"
+log "JAVA_PATH=$JAVA_PATH"
+
+if [[ -x "${IBC_PATH}/scripts/ibcstart.sh" ]]; then
+    log "Found ibcstart.sh in ${IBC_PATH}/scripts"
+else
+    log "Required script ibcstart.sh not found in ${IBC_PATH}/scripts"
+    exit 1
+fi
+
+if pgrep -f "java.*${IBC_INI}" >/dev/null; then
+    log "A process is already running for java with ${IBC_INI}"
+    exit 1
+fi
 
 
 #              PLEASE DON'T CHANGE ANYTHING BELOW THIS LINE !!
@@ -189,36 +231,6 @@ HIDE=
 #   End of Notes:
 #==============================================================================
 
-# Debugging: Log the values of key variables before proceeding
-set -x
-
-# Log the values of key variables
->&2 echo "Debug: TWS_MAJOR_VRSN=$TWS_MAJOR_VRSN"
->&2 echo "Debug: IBC_INI=$IBC_INI"
->&2 echo "Debug: TRADING_MODE=$TRADING_MODE"
->&2 echo "Debug: TWOFA_TIMEOUT_ACTION=$TWOFA_TIMEOUT_ACTION"
->&2 echo "Debug: IBC_PATH=$IBC_PATH"
->&2 echo "Debug: TWS_PATH=$TWS_PATH"
->&2 echo "Debug: TWS_SETTINGS_PATH=$TWS_SETTINGS_PATH"
->&2 echo "Debug: LOG_PATH=$LOG_PATH"
->&2 echo "Debug: JAVA_PATH=$JAVA_PATH"
-
-# Check if the required scripts exist and log the result
-if [[ -x "${IBC_PATH}/scripts/ibcstart.sh" ]]; then
-    >&2 echo "Debug: Found ibcstart.sh"
-else
-    >&2 echo "Debug: Required script ibcstart.sh not found in ${IBC_PATH}/scripts"
-    >&2 exit 1
-fi
-
-# Log if a process is already running
-if [[ -n $(/usr/bin/pgrep -f "java.*${IBC_INI}") ]]; then
-    >&2 echo "Debug: A process is already running for java with ${IBC_INI}"
-    >&2 exit 1
-fi
-
-# End of debugging additions
-set +x
 
 APP=GATEWAY
 
